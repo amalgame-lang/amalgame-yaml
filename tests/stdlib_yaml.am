@@ -1,0 +1,161 @@
+// Test sample for amalgame-yaml — YAML 1.2 subset reader.
+// Covers the shapes a CI / app config typically uses.
+//
+// Style note: every method-call result is pulled into a typed
+// local before calling another method on it. Chained access
+// like `scalars.Get("x").AsBool()` lowers to `void_AsBool` in
+// --external mode because the cgen doesn't carry the return
+// type of the intermediate call. Same workaround as the JSON
+// chain-mash gotcha (see CONTINUATION.md "Known gotchas").
+
+namespace Tests
+
+import Amalgame.Collections
+import Amalgame.Formats.Yaml
+
+public class Program {
+    public static void Main(string[] args) {
+
+        // ── Empty / null ─────────────────────────────────
+        let empty: YamlValue = Yaml.Parse("")
+        if (empty.IsNull()) {
+            Console.WriteLine("[PASS] parse empty")
+        } else {
+            Console.WriteLine("[FAIL] parse empty")
+        }
+
+        // ── Single scalar mapping ────────────────────────
+        let kv: YamlValue = Yaml.Parse("name: foo")
+        if (kv.IsMap()) {
+            Console.WriteLine("[PASS] kv is map")
+        } else {
+            Console.WriteLine("[FAIL] kv is map")
+        }
+        let kvName: YamlValue = kv.Get("name")
+        if (kvName.AsString() == "foo") {
+            Console.WriteLine("[PASS] kv string")
+        } else {
+            Console.WriteLine("[FAIL] kv string")
+        }
+
+        // ── Bool / int / float scalars ───────────────────
+        let scalars: YamlValue = Yaml.Parse("active: true\ncount: 42\nratio: 1.5\n")
+        let active:  YamlValue = scalars.Get("active")
+        if (active.AsBool()) {
+            Console.WriteLine("[PASS] scalar bool")
+        } else {
+            Console.WriteLine("[FAIL] scalar bool")
+        }
+        let count: YamlValue = scalars.Get("count")
+        if (count.AsInt() == 42) {
+            Console.WriteLine("[PASS] scalar int")
+        } else {
+            Console.WriteLine("[FAIL] scalar int")
+        }
+        let ratioV: YamlValue = scalars.Get("ratio")
+        let ratio:  float     = ratioV.AsFloat()
+        let diff:   float     = ratio - 1.5
+        if (diff < 0.0001 && diff > -0.0001) {
+            Console.WriteLine("[PASS] scalar float")
+        } else {
+            Console.WriteLine("[FAIL] scalar float")
+        }
+
+        // ── Quoted strings — single + double ────────────
+        let quoted: YamlValue = Yaml.Parse("a: \"hello world\"\nb: 'verbatim'\n")
+        let qa: YamlValue = quoted.Get("a")
+        if (qa.AsString() == "hello world") {
+            Console.WriteLine("[PASS] double quoted")
+        } else {
+            Console.WriteLine("[FAIL] double quoted")
+        }
+        let qb: YamlValue = quoted.Get("b")
+        if (qb.AsString() == "verbatim") {
+            Console.WriteLine("[PASS] single quoted")
+        } else {
+            Console.WriteLine("[FAIL] single quoted")
+        }
+
+        // ── Comments + blank lines ───────────────────────
+        let cmt: YamlValue = Yaml.Parse("# leading comment\nname: foo # trailing\n\n# blank line above\nversion: 1\n")
+        let cmtName: YamlValue = cmt.Get("name")
+        if (cmtName.AsString() == "foo") {
+            Console.WriteLine("[PASS] comment-strip")
+        } else {
+            Console.WriteLine("[FAIL] comment-strip got: " + cmtName.AsString())
+        }
+        let cmtVer: YamlValue = cmt.Get("version")
+        if (cmtVer.AsInt() == 1) {
+            Console.WriteLine("[PASS] post-blank line")
+        } else {
+            Console.WriteLine("[FAIL] post-blank line")
+        }
+
+        // ── Sequence of scalars ──────────────────────────
+        let seq:  YamlValue = Yaml.Parse("tags:\n  - red\n  - blue\n  - green\n")
+        let tags: YamlValue = seq.Get("tags")
+        if (tags.IsArray() && tags.Count() == 3) {
+            Console.WriteLine("[PASS] seq count")
+        } else {
+            Console.WriteLine("[FAIL] seq count")
+        }
+        let t0: YamlValue = tags.At(0)
+        let t2: YamlValue = tags.At(2)
+        if (t0.AsString() == "red" && t2.AsString() == "green") {
+            Console.WriteLine("[PASS] seq content")
+        } else {
+            Console.WriteLine("[FAIL] seq content")
+        }
+
+        // ── Nested mapping ───────────────────────────────
+        let nest: YamlValue = Yaml.Parse("server:\n  host: localhost\n  port: 8080\n")
+        let srv:  YamlValue = nest.Get("server")
+        if (srv.IsMap()) {
+            Console.WriteLine("[PASS] nested map")
+        } else {
+            Console.WriteLine("[FAIL] nested map")
+        }
+        let srvHost: YamlValue = srv.Get("host")
+        if (srvHost.AsString() == "localhost") {
+            Console.WriteLine("[PASS] nested string")
+        } else {
+            Console.WriteLine("[FAIL] nested string")
+        }
+        let srvPort: YamlValue = srv.Get("port")
+        if (srvPort.AsInt() == 8080) {
+            Console.WriteLine("[PASS] nested int")
+        } else {
+            Console.WriteLine("[FAIL] nested int")
+        }
+
+        // ── Sequence of maps ─────────────────────────────
+        let people: YamlValue = Yaml.Parse("people:\n  - name: alice\n    age: 30\n  - name: bob\n    age: 25\n")
+        let pp:     YamlValue = people.Get("people")
+        if (pp.IsArray() && pp.Count() == 2) {
+            Console.WriteLine("[PASS] seq-of-maps count")
+        } else {
+            Console.WriteLine("[FAIL] seq-of-maps count")
+        }
+        let alice:     YamlValue = pp.At(0)
+        let aliceName: YamlValue = alice.Get("name")
+        let aliceAge:  YamlValue = alice.Get("age")
+        if (alice.IsMap() && aliceName.AsString() == "alice" && aliceAge.AsInt() == 30) {
+            Console.WriteLine("[PASS] seq-of-maps alice")
+        } else {
+            Console.WriteLine("[FAIL] seq-of-maps alice")
+        }
+
+        // ── Has() / missing-key returns Null ─────────────
+        if (kv.Has("name") && !kv.Has("nope")) {
+            Console.WriteLine("[PASS] has check")
+        } else {
+            Console.WriteLine("[FAIL] has check")
+        }
+        let miss: YamlValue = kv.Get("nope")
+        if (miss.IsNull()) {
+            Console.WriteLine("[PASS] missing-key null")
+        } else {
+            Console.WriteLine("[FAIL] missing-key null")
+        }
+    }
+}

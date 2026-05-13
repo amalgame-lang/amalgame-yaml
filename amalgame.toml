@@ -1,0 +1,32 @@
+# Package manifest — amalgame-yaml
+#
+# Pure-Amalgame YAML 1.2 subset reader — top-level + nested block
+# mappings, block sequences, scalars (bool/int/float/string),
+# single- and double-quoted strings, comments. Same `YamlValue`
+# tree shape as `TomlValue` in core toml.am.
+#
+# Out of scope: anchors / aliases, multi-doc separators, flow
+# style, folded/literal multiline scalars, tags.
+#
+# Originally bundled in amc's src/stdlib/yaml.am; extracted into
+# this external package as part of the framework split.
+#
+# Installation:
+#
+#   amc package add yaml                  # via curated index
+#   amc package add github.com/amalgame-lang/amalgame-yaml@v0.1.0
+
+[package]
+name              = "amalgame-yaml"
+version           = "0.1.0"
+license           = "Apache-2.0"
+description       = "Pure-Amalgame YAML 1.2 subset reader: block mappings + sequences + scalars."
+authors           = ["Bastien Mouget"]
+required-amalgame = ">=0.7.7"
+schema-version    = 1
+
+[stdlib]
+class     = "Yaml"
+header    = "facade-stub.h"
+namespace = "Amalgame.Formats.Yaml"
+facade    = "facade.am"
